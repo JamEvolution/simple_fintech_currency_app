@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/currency_providers.dart';
-import 'package:flutter/services.dart';
+import '../../domain/models/currency.dart';
+import 'converter/amount_input.dart';
+import 'converter/currency_dropdown.dart';
+import 'converter/result_display.dart';
+import 'converter/loading_or_error.dart';
 
 class CurrencyConverterForm extends ConsumerStatefulWidget {
   const CurrencyConverterForm({super.key});
@@ -104,88 +108,21 @@ class _CurrencyConverterFormState extends ConsumerState<CurrencyConverterForm> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextField(
-                controller: _amountController,
-                keyboardType: TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-                ],
-                decoration: const InputDecoration(
-                  labelText: 'Miktar',
-                  border: OutlineInputBorder(),
-                  hintText: '0.00',
-                  prefixIcon: Icon(Icons.attach_money),
-                ),
-              ),
+              // Miktar girişi
+              AmountInput(controller: _amountController),
               const SizedBox(height: 16),
+              
+              // Para birimi seçimi
               currenciesAsync.when(
-                data: (currencies) => Column(
-                  children: [
-                    DropdownButtonFormField<String>(
-                      value: _sourceCurrency,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Kaynak Para Birimi',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.currency_exchange),
-                      ),
-                      items: currencies.map((currency) {
-                        return DropdownMenuItem(
-                          value: currency.code,
-                          child: Text(
-                            '${currency.code} - ${currency.name}',
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _sourceCurrency = value;
-                          _result = null;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: _targetCurrency,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Hedef Para Birimi',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.currency_exchange),
-                      ),
-                      items: currencies.map((currency) {
-                        return DropdownMenuItem(
-                          value: currency.code,
-                          child: Text(
-                            '${currency.code} - ${currency.name}',
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _targetCurrency = value;
-                          _result = null;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-                loading: () => const SizedBox(
-                  height: 100,
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-                error: (error, stack) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Text(
-                    'Hata: $error',
-                    style: TextStyle(color: Theme.of(context).colorScheme.error),
-                  ),
+                data: (currencies) => _buildCurrencySelectors(currencies),
+                loading: () => const LoadingOrError(isLoading: true),
+                error: (error, stack) => LoadingOrError(
+                  isLoading: false,
+                  errorMessage: error.toString(),
                 ),
               ),
+              
+              // Dönüştür butonu
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: _convertCurrency,
@@ -195,40 +132,63 @@ class _CurrencyConverterFormState extends ConsumerState<CurrencyConverterForm> {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
               ),
+              
+              // Sonuç gösterimi
               if (_result != null) ...[
                 const SizedBox(height: 24),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        'Sonuç',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${_amountController.text} $_sourceCurrency = ',
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                      Text(
-                        '${_result!.toStringAsFixed(2)} $_targetCurrency',
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
+                ResultDisplay(
+                  result: _result!,
+                  amount: _amountController.text,
+                  sourceCurrency: _sourceCurrency!,
+                  targetCurrency: _targetCurrency!,
                 ),
               ],
             ],
           ),
         ),
       ),
+    );
+  }
+  
+  Widget _buildCurrencySelectors(List<Currency> currencies) {
+    return Column(
+      children: [
+        CurrencyDropdown(
+          currencies: currencies,
+          value: _sourceCurrency,
+          labelText: 'Kaynak Para Birimi',
+          onChanged: (value) {
+            setState(() {
+              _sourceCurrency = value;
+              _result = null;
+            });
+          },
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: CurrencyDropdown(
+                currencies: currencies,
+                value: _targetCurrency,
+                labelText: 'Hedef Para Birimi',
+                onChanged: (value) {
+                  setState(() {
+                    _targetCurrency = value;
+                    _result = null;
+                  });
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.swap_vert),
+              tooltip: 'Para birimlerini değiştir',
+              onPressed: _swapCurrencies,
+            ),
+          ],
+        ),
+      ],
     );
   }
 } 
