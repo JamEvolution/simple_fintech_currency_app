@@ -10,7 +10,7 @@ import '../widgets/historical/rate_summary_card.dart';
 import '../widgets/historical/historical_chart.dart';
 import '../widgets/historical/empty_or_loading_state.dart';
 
-class HistoricalRatesScreen extends ConsumerWidget {
+class HistoricalRatesScreen extends ConsumerStatefulWidget {
   final Currency currency;
 
   const HistoricalRatesScreen({
@@ -19,27 +19,33 @@ class HistoricalRatesScreen extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HistoricalRatesScreen> createState() => _HistoricalRatesScreenState();
+}
 
-    final controller = ref.read(historicalRatesControllerProvider(currency).notifier);
-    final state = ref.watch(historicalRatesControllerProvider(currency));
-    
-    ref.listen(
-      historicalRatesControllerProvider(currency).select((value) => value),
-      (previous, current) {
-        if (previous == null) {
-          controller.loadRatesForDateRange(
-            state.dateRange.startDate, 
-            state.dateRange.endDate
-          );
-        }
-      },
-      onError: (error, stackTrace) {
-        if (error is AppException) {
-          showErrorSnackBar(context, error);
-        }
-      },
-    );
+class _HistoricalRatesScreenState extends ConsumerState<HistoricalRatesScreen> {
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Verileri yükleme işlemini initState sonrası bir sonraki frame'e planlıyoruz
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_isInitialized) {
+        final controller = ref.read(historicalRatesControllerProvider(widget.currency).notifier);
+        final state = ref.read(historicalRatesControllerProvider(widget.currency));
+        controller.loadRatesForDateRange(
+          state.dateRange.startDate, 
+          state.dateRange.endDate
+        );
+        _isInitialized = true;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = ref.read(historicalRatesControllerProvider(widget.currency).notifier);
+    final state = ref.watch(historicalRatesControllerProvider(widget.currency));
 
     final theme = Theme.of(context);
     
@@ -47,10 +53,10 @@ class HistoricalRatesScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Row(
           children: [
-            Text(currency.code),
+            Text(widget.currency.code),
             const SizedBox(width: 8),
             Text(
-              '- ${currency.name}',
+              '- ${widget.currency.name}',
               style: theme.textTheme.titleMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withOpacity(0.7),
               ),
@@ -111,8 +117,8 @@ class HistoricalRatesScreen extends ConsumerWidget {
     }
     
     final theme = Theme.of(context);
-    final firstRate = rates.first.rates[currency.code] ?? 0;
-    final lastRate = rates.last.rates[currency.code] ?? 0;
+    final firstRate = rates.first.rates[widget.currency.code] ?? 0;
+    final lastRate = rates.last.rates[widget.currency.code] ?? 0;
     
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -141,14 +147,14 @@ class HistoricalRatesScreen extends ConsumerWidget {
           RateSummaryCard(
             firstRate: firstRate,
             lastRate: lastRate,
-            currencyCode: currency.code,
+            currencyCode: widget.currency.code,
           ),
           const SizedBox(height: 16),
           // Grafik
           Expanded(
             child: HistoricalChart(
               rates: rates,
-              currencyCode: currency.code,
+              currencyCode: widget.currency.code,
             ),
           ),
         ],

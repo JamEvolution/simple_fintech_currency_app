@@ -3,19 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/errors/app_exceptions.dart';
 import '../../../../core/state/ui_state.dart';
 import '../../domain/models/currency.dart';
-import '../../domain/models/exchange_rate.dart';
 import '../../domain/repositories/currency_repository.dart';
 import '../providers/currency_providers.dart';
 
 /// Para birimi dönüştürücüsü için controller
-class CurrencyConverterController extends StateNotifier<CurrencyConverterState> {
+class CurrencyConverterController
+    extends StateNotifier<CurrencyConverterState> {
   final CurrencyRepository _repository;
 
   /// Controller oluşturur
   CurrencyConverterController({
     required CurrencyRepository repository,
   })  : _repository = repository,
-       super(CurrencyConverterState.initial());
+        super(CurrencyConverterState.initial());
 
   /// Tüm para birimlerini yükler
   Future<void> loadCurrencies() async {
@@ -147,4 +147,4 @@ final currencyConverterControllerProvider =
   (ref) => CurrencyConverterController(
     repository: ref.watch(currencyRepositoryProvider),
   ),
-); 
+);

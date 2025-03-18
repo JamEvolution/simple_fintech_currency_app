@@ -24,12 +24,15 @@ class _CurrencyConverterFormState extends ConsumerState<CurrencyConverterForm> {
   bool _isInitialized = false;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_isInitialized) {
-      ref.read(currencyConverterControllerProvider.notifier).loadCurrencies();
-      _isInitialized = true;
-    }
+  void initState() {
+    super.initState();
+    // Kurları yükleme işlemini initState sonrası bir sonraki frame'e planlıyoruz
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_isInitialized) {
+        ref.read(currencyConverterControllerProvider.notifier).loadCurrencies();
+        _isInitialized = true;
+      }
+    });
   }
 
   @override
