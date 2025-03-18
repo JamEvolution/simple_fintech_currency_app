@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/error_constants.dart';
 import '../../../../core/errors/app_exceptions.dart';
 import '../../../../core/state/ui_state.dart';
+import '../../../../core/utils/logger_utils.dart';
 import '../../domain/models/currency.dart';
 import '../../domain/models/exchange_rate.dart';
 import '../../domain/repositories/currency_repository.dart';
@@ -17,19 +18,24 @@ class CurrencyConverterController
   CurrencyConverterController({
     required CurrencyRepository repository,
   })  : _repository = repository,
-        super(CurrencyConverterState.initial());
+        super(CurrencyConverterState.initial()) {
+    AppLogger.info('CurrencyConverterController başlatıldı');
+  }
 
   /// Tüm para birimlerini yükler
   Future<void> loadCurrencies() async {
+    AppLogger.d('Para birimleri yükleniyor');
     state = state.copyWith(currencies: const Loading());
 
     final result = await _repository.getCurrencies();
 
     result.handle(
       onSuccess: (currencies) {
+        AppLogger.d('${currencies.length} para birimi başarıyla yüklendi');
         state = state.copyWith(currencies: Data(currencies));
       },
       onFailure: (error) {
+        AppLogger.e('Para birimleri yüklenirken hata oluştu', error);
         state = state.copyWith(currencies: Error(error));
       },
     );
@@ -41,6 +47,7 @@ class CurrencyConverterController
     required String targetCurrency,
     required double amount,
   }) async {
+    AppLogger.d('Döviz dönüştürme: $amount $sourceCurrency -> $targetCurrency');
     state = state.copyWith(
       conversionResult: const Loading(),
     );
@@ -48,6 +55,7 @@ class CurrencyConverterController
     // Aynı para birimi kontrolü
     if (sourceCurrency == targetCurrency) {
       final error = AppException(ErrorMessages.sameCurrency);
+      AppLogger.warning('Dönüşüm hatası: Aynı para birimi seçildi');
       state = state.copyWith(
         conversionResult: Error(error),
       );
@@ -63,6 +71,7 @@ class CurrencyConverterController
       onSuccess: (rate) {
         final targetRate = rate.rates[targetCurrency];
         if (targetRate == null) {
+          AppLogger.warning('Dönüşüm hatası: Hedef kur bulunamadı - $targetCurrency');
           state = state.copyWith(
             conversionResult: Error(
               AppException(ErrorMessages.rateNotFound),
@@ -70,6 +79,7 @@ class CurrencyConverterController
           );
         } else {
           final convertedAmount = amount * targetRate;
+          AppLogger.info('Dönüşüm başarılı: $amount $sourceCurrency = $convertedAmount $targetCurrency (Kur: $targetRate)');
           state = state.copyWith(
             conversionResult: Data(
               ConversionResult(
@@ -84,6 +94,7 @@ class CurrencyConverterController
         }
       },
       onFailure: (error) {
+        AppLogger.e('Dönüşüm işlemi sırasında hata', error);
         state = state.copyWith(
           conversionResult: Error(error),
         );
@@ -92,6 +103,7 @@ class CurrencyConverterController
   }
 
   void resetConversion() {
+    AppLogger.d('Dönüşüm sonucu sıfırlanıyor');
     state = state.copyWith(
       conversionResult: const Initial(),
     );

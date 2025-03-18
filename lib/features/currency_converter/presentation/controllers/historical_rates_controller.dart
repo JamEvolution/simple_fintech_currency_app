@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/error_constants.dart';
 import '../../../../core/errors/app_exceptions.dart';
 import '../../../../core/state/ui_state.dart';
+import '../../../../core/utils/logger_utils.dart';
 import '../../domain/models/currency.dart';
 import '../../domain/models/exchange_rate.dart';
 import '../../domain/repositories/currency_repository.dart';
@@ -18,10 +19,17 @@ class HistoricalRatesController extends StateNotifier<HistoricalRatesState> {
     required Currency currency,
   })  : _repository = repository,
         _currency = currency,
-        super(HistoricalRatesState.initial());
+        super(HistoricalRatesState.initial()) {
+    AppLogger.info('HistoricalRatesController başlatıldı: ${currency.code}');
+  }
 
   /// Belirli bir tarih aralığı için kurları yükler
   Future<void> loadRatesForDateRange(DateTime startDate, DateTime endDate) async {
+    final formattedStartDate = startDate.toIso8601String().split('T')[0];
+    final formattedEndDate = endDate.toIso8601String().split('T')[0];
+    
+    AppLogger.d('Tarih aralığı için kurlar yükleniyor: $formattedStartDate - $formattedEndDate (${_currency.code})');
+    
     state = state.copyWith(
       dateRange: DateRange(startDate: startDate, endDate: endDate),
       rates: const Loading(),
@@ -37,16 +45,19 @@ class HistoricalRatesController extends StateNotifier<HistoricalRatesState> {
     result.handle(
       onSuccess: (rates) {
         if (rates.isEmpty) {
+          AppLogger.warning('Tarih aralığında veri bulunamadı: $formattedStartDate - $formattedEndDate');
           state = state.copyWith(
             rates: Error(AppException(ErrorMessages.noDataForDateRange)),
           );
         } else {
+          AppLogger.info('${rates.length} günlük kur verisi yüklendi');
           state = state.copyWith(
             rates: Data(rates),
           );
         }
       },
       onFailure: (error) {
+        AppLogger.e('Kur verileri yüklenirken hata oluştu', error);
         state = state.copyWith(
           rates: Error(error),
         );
@@ -56,10 +67,14 @@ class HistoricalRatesController extends StateNotifier<HistoricalRatesState> {
 
   /// Başlangıç tarihini günceller
   void updateStartDate(DateTime date) {
+    final formattedDate = date.toIso8601String().split('T')[0];
+    AppLogger.d('Başlangıç tarihi güncelleniyor: $formattedDate');
+    
     final currentRange = state.dateRange;
     
     // Eğer yeni başlangıç tarihi, bitiş tarihinden sonra ise ayarlamalar yap
     if (date.isAfter(currentRange.endDate)) {
+      AppLogger.warning('Başlangıç tarihi bitiş tarihinden sonra, tarihler düzenleniyor');
       state = state.copyWith(
         dateRange: DateRange(
           startDate: date,
@@ -81,10 +96,14 @@ class HistoricalRatesController extends StateNotifier<HistoricalRatesState> {
 
   /// Bitiş tarihini günceller
   void updateEndDate(DateTime date) {
+    final formattedDate = date.toIso8601String().split('T')[0];
+    AppLogger.d('Bitiş tarihi güncelleniyor: $formattedDate');
+    
     final currentRange = state.dateRange;
     
     // Eğer yeni bitiş tarihi, başlangıç tarihinden önce ise ayarlamalar yap
     if (date.isBefore(currentRange.startDate)) {
+      AppLogger.warning('Bitiş tarihi başlangıç tarihinden önce, tarihler düzenleniyor');
       state = state.copyWith(
         dateRange: DateRange(
           startDate: date.subtract(const Duration(days: 1)),
@@ -106,6 +125,7 @@ class HistoricalRatesController extends StateNotifier<HistoricalRatesState> {
 
   /// Verileri yeniler
   void refreshData() {
+    AppLogger.d('Veriler yenileniyor');
     loadRatesForDateRange(state.dateRange.startDate, state.dateRange.endDate);
   }
 }

@@ -1,11 +1,15 @@
 import '../constants/error_constants.dart';
+import '../utils/logger_utils.dart';
 
 class AppException implements Exception {
   final String message;
   final String? code;
   final dynamic details;
 
-  AppException(this.message, {this.code, this.details});
+  AppException(this.message, {this.code, this.details}) {
+    // Hata oluştuğunda otomatik olarak log'a kaydet
+    AppLogger.e('$code: $message', details);
+  }
 
   @override
   String toString() => 'AppException: $message${code != null ? ' (Code: $code)' : ''}';
