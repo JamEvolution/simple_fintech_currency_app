@@ -5,7 +5,6 @@ import '../../../../core/errors/app_exceptions.dart';
 import '../../../../core/state/ui_state.dart';
 import '../../../../core/utils/logger_utils.dart';
 import '../../domain/models/currency.dart';
-import '../../domain/models/exchange_rate.dart';
 import '../../domain/repositories/currency_repository.dart';
 import '../providers/currency_providers.dart';
 
