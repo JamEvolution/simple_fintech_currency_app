@@ -1,21 +1,32 @@
+import '../../../../core/result/result.dart';
 import '../models/currency.dart';
 import '../models/exchange_rate.dart';
 
 abstract class CurrencyRepository {
-  Future<List<Currency>> getCurrencies();
-  Future<ExchangeRate> getLatestRates({
+  /// Tüm para birimlerini getirir
+  Future<Result<List<Currency>>> getCurrencies();
+  
+  /// Güncel döviz kurlarını getirir
+  Future<Result<ExchangeRate>> getLatestRates({
     String? base,
     List<String>? symbols,
   });
-  Future<ExchangeRate> getHistoricalRates({
+  
+  /// Belirli bir tarihe ait döviz kurlarını getirir
+  Future<Result<ExchangeRate>> getHistoricalRates({
     required DateTime date,
     String? base,
     List<String>? symbols,
   });
-  Future<List<ExchangeRate>> getRatesForDateRange({
+  
+  /// Belirli bir tarih aralığındaki döviz kurlarını getirir
+  Future<Result<List<ExchangeRate>>> getRatesForDateRange({
     required DateTime startDate,
     required DateTime endDate,
     String? base,
     List<String>? symbols,
   });
+  
+  /// Önbellek yönetimi için metodlar
+  void clearAllCache();
 } 

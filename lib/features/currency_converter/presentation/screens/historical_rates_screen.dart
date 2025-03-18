@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/currency_providers.dart';
+import '../../../../core/errors/app_exceptions.dart';
 import '../../domain/models/currency.dart';
 import '../../domain/models/exchange_rate.dart';
 import '../widgets/historical/date_range_selector.dart';
@@ -25,6 +26,7 @@ class _HistoricalRatesScreenState extends ConsumerState<HistoricalRatesScreen> {
   late DateTime _endDate;
   List<ExchangeRate>? _rates;
   bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -35,21 +37,47 @@ class _HistoricalRatesScreenState extends ConsumerState<HistoricalRatesScreen> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
-    
-    final provider = ratesForDateRangeProvider((
-      startDate: _startDate,
-      endDate: _endDate,
-      base: 'EUR',
-      symbols: [widget.currency.code],
-    ));
-    
-    final result = await ref.read(provider.future);
-    
     setState(() {
-      _rates = result;
-      _isLoading = false;
+      _isLoading = true;
+      _errorMessage = null;
     });
+    
+    try {
+      final provider = ratesForDateRangeProvider((
+        startDate: _startDate,
+        endDate: _endDate,
+        base: 'EUR',
+        symbols: [widget.currency.code],
+      ));
+      
+      final result = await ref.read(provider.future);
+      
+      setState(() {
+        _rates = result;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        if (e is AppException) {
+          _errorMessage = formatErrorMessage(e);
+        } else {
+          _errorMessage = 'Beklenmeyen bir hata oluştu: ${e.toString()}';
+        }
+      });
+      _showError(_errorMessage!);
+    }
+  }
+  
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Theme.of(context).colorScheme.error,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   @override

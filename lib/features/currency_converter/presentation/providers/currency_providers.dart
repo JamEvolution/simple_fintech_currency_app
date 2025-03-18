@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../../../core/errors/app_exceptions.dart';
 import '../../data/repositories/currency_repository_impl.dart';
 import '../../domain/models/currency.dart';
 import '../../domain/models/exchange_rate.dart';
@@ -15,15 +16,25 @@ final currencyRepositoryProvider = Provider<CurrencyRepository>((ref) {
 
 final currenciesProvider = FutureProvider<List<Currency>>((ref) async {
   final repository = ref.watch(currencyRepositoryProvider);
-  return repository.getCurrencies();
+  final result = await repository.getCurrencies();
+  
+  return result.handle(
+    onSuccess: (data) => data,
+    onFailure: (error) => throw error,
+  );
 });
 
 final latestRatesProvider = FutureProvider.family<ExchangeRate,
     ({String? base, List<String>? symbols})>((ref, params) async {
   final repository = ref.watch(currencyRepositoryProvider);
-  return repository.getLatestRates(
+  final result = await repository.getLatestRates(
     base: params.base,
     symbols: params.symbols,
+  );
+  
+  return result.handle(
+    onSuccess: (data) => data,
+    onFailure: (error) => throw error,
   );
 });
 
@@ -35,10 +46,15 @@ final historicalRatesProvider = FutureProvider.family<
       List<String>? symbols
     })>((ref, params) async {
   final repository = ref.watch(currencyRepositoryProvider);
-  return repository.getHistoricalRates(
+  final result = await repository.getHistoricalRates(
     date: params.date,
     base: params.base,
     symbols: params.symbols,
+  );
+  
+  return result.handle(
+    onSuccess: (data) => data,
+    onFailure: (error) => throw error,
   );
 });
 
@@ -50,17 +66,30 @@ final ratesForDateRangeProvider = FutureProvider.family<
       String? base,
       List<String>? symbols,
     })>((ref, params) async {
-  print('Provider çağrıldı: ${params.startDate} - ${params.endDate}');
-  print('Base: ${params.base}, Symbols: ${params.symbols}');
-
   final repository = ref.watch(currencyRepositoryProvider);
-  final rates = await repository.getRatesForDateRange(
+  final result = await repository.getRatesForDateRange(
     startDate: params.startDate,
     endDate: params.endDate,
     base: params.base,
     symbols: params.symbols,
   );
-
-  print('Provider sonucu: ${rates.length} adet veri');
-  return rates;
+  
+  return result.handle(
+    onSuccess: (data) => data,
+    onFailure: (error) => throw error,
+  );
 });
+
+String formatErrorMessage(AppException error) {
+  if (error is NetworkException) {
+    return 'Ağ hatası: ${error.message}';
+  } else if (error is ServerException) {
+    return 'Sunucu hatası: ${error.message} (${error.statusCode})';
+  } else if (error is ParseException) {
+    return 'Veri ayrıştırma hatası: ${error.message}';
+  } else if (error is CacheException) {
+    return 'Önbellek hatası: ${error.message}';
+  } else {
+    return 'Beklenmeyen bir hata oluştu: ${error.message}';
+  }
+}

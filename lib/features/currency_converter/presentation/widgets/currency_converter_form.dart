@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/currency_providers.dart';
+import '../../../../core/errors/app_exceptions.dart';
 import '../../domain/models/currency.dart';
 import 'converter/amount_input.dart';
 import 'converter/currency_dropdown.dart';
@@ -19,6 +20,7 @@ class _CurrencyConverterFormState extends ConsumerState<CurrencyConverterForm> {
   String? _sourceCurrency;
   String? _targetCurrency;
   double? _result;
+  bool _isConverting = false;
 
   @override
   void dispose() {
@@ -45,6 +47,10 @@ class _CurrencyConverterFormState extends ConsumerState<CurrencyConverterForm> {
       return;
     }
 
+    setState(() {
+      _isConverting = true;
+    });
+
     try {
       final rates = await ref.read(latestRatesProvider((
         base: _sourceCurrency!,
@@ -59,9 +65,18 @@ class _CurrencyConverterFormState extends ConsumerState<CurrencyConverterForm> {
 
       setState(() {
         _result = amount * rate;
+        _isConverting = false;
       });
     } catch (e) {
-      _showError('Döviz çevirme işlemi başarısız oldu');
+      setState(() {
+        _isConverting = false;
+      });
+      
+      if (e is AppException) {
+        _showError(formatErrorMessage(e));
+      } else {
+        _showError('Döviz çevirme işlemi başarısız oldu: ${e.toString()}');
+      }
     }
   }
 
@@ -74,6 +89,7 @@ class _CurrencyConverterFormState extends ConsumerState<CurrencyConverterForm> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
@@ -116,18 +132,34 @@ class _CurrencyConverterFormState extends ConsumerState<CurrencyConverterForm> {
               currenciesAsync.when(
                 data: (currencies) => _buildCurrencySelectors(currencies),
                 loading: () => const LoadingOrError(isLoading: true),
-                error: (error, stack) => LoadingOrError(
-                  isLoading: false,
-                  errorMessage: error.toString(),
-                ),
+                error: (error, stack) {
+                  String errorMessage = 'Veri yüklenirken bir hata oluştu';
+                  if (error is AppException) {
+                    errorMessage = formatErrorMessage(error);
+                  } else {
+                    errorMessage = 'Hata: ${error.toString()}';
+                  }
+                  return LoadingOrError(
+                    isLoading: false,
+                    errorMessage: errorMessage,
+                  );
+                },
               ),
               
               // Dönüştür butonu
               const SizedBox(height: 24),
               ElevatedButton.icon(
-                onPressed: _convertCurrency,
-                icon: const Icon(Icons.swap_horiz),
-                label: const Text('Dönüştür'),
+                onPressed: _isConverting ? null : _convertCurrency,
+                icon: _isConverting 
+                  ? const SizedBox(
+                      width: 16, 
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                      )
+                    ) 
+                  : const Icon(Icons.swap_horiz),
+                label: Text(_isConverting ? 'Dönüştürülüyor...' : 'Dönüştür'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
