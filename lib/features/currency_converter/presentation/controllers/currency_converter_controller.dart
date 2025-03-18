@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/error_constants.dart';
 import '../../../../core/errors/app_exceptions.dart';
 import '../../../../core/state/ui_state.dart';
 import '../../domain/models/currency.dart';
+import '../../domain/models/exchange_rate.dart';
 import '../../domain/repositories/currency_repository.dart';
 import '../providers/currency_providers.dart';
 
@@ -45,7 +47,7 @@ class CurrencyConverterController
 
     // Aynı para birimi kontrolü
     if (sourceCurrency == targetCurrency) {
-      final error = AppException('Kaynak ve hedef para birimleri aynı olamaz');
+      final error = AppException(ErrorMessages.sameCurrency);
       state = state.copyWith(
         conversionResult: Error(error),
       );
@@ -63,7 +65,7 @@ class CurrencyConverterController
         if (targetRate == null) {
           state = state.copyWith(
             conversionResult: Error(
-              AppException('Döviz kuru bulunamadı'),
+              AppException(ErrorMessages.rateNotFound),
             ),
           );
         } else {

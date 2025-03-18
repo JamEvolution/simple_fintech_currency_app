@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/error_constants.dart';
 import '../../../../core/errors/app_exceptions.dart';
 import '../../../../core/state/ui_state.dart';
 import '../../domain/models/currency.dart';
@@ -37,7 +38,7 @@ class HistoricalRatesController extends StateNotifier<HistoricalRatesState> {
       onSuccess: (rates) {
         if (rates.isEmpty) {
           state = state.copyWith(
-            rates: Error(AppException('Bu tarih aralığında veri bulunamadı')),
+            rates: Error(AppException(ErrorMessages.noDataForDateRange)),
           );
         } else {
           state = state.copyWith(

@@ -4,6 +4,7 @@ import '../controllers/currency_converter_controller.dart';
 import '../../../../core/errors/app_exceptions.dart';
 import '../../../../core/state/ui_state.dart';
 import '../../../../core/utils/error_formatters.dart';
+import '../../../../core/constants/error_constants.dart';
 import '../../domain/models/currency.dart';
 import 'converter/amount_input.dart';
 import 'converter/currency_dropdown.dart';
@@ -43,23 +44,23 @@ class _CurrencyConverterFormState extends ConsumerState<CurrencyConverterForm> {
 
   Future<void> _convertCurrency() async {
     if (_amountController.text.isEmpty) {
-      showMessageSnackBar(context, 'Lütfen geçerli bir miktar girin', isError: true);
+      showMessageSnackBar(context, ErrorMessages.invalidAmount, isError: true);
       return;
     }
     
     final amount = double.tryParse(_amountController.text);
     if (amount == null) {
-      showMessageSnackBar(context, 'Lütfen geçerli bir miktar girin', isError: true);
+      showMessageSnackBar(context, ErrorMessages.invalidAmount, isError: true);
       return;
     }
     
     if (_sourceCurrency == null) {
-      showMessageSnackBar(context, 'Lütfen bir kaynak para birimi seçin', isError: true);
+      showMessageSnackBar(context, ErrorMessages.currencyNotSelected, isError: true);
       return;
     }
     
     if (_targetCurrency == null) {
-      showMessageSnackBar(context, 'Lütfen bir hedef para birimi seçin', isError: true);
+      showMessageSnackBar(context, ErrorMessages.currencyNotSelected, isError: true);
       return;
     }
     
