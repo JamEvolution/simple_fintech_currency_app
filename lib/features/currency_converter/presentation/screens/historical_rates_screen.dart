@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../controllers/historical_rates_controller.dart';
 import '../../../../core/errors/app_exceptions.dart';
-import '../../../../core/state/ui_state.dart';
+import '../../../../core/utils/error_formatters.dart';
 import '../../domain/models/currency.dart';
 import '../../domain/models/exchange_rate.dart';
 import '../widgets/historical/date_range_selector.dart';
@@ -20,17 +20,26 @@ class HistoricalRatesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Controller sağlayıcısından state'i al
+
     final controller = ref.read(historicalRatesControllerProvider(currency).notifier);
     final state = ref.watch(historicalRatesControllerProvider(currency));
     
-    // Component ilk oluşturulduğunda verileri yükle
-    Future.microtask(() {
-      controller.loadRatesForDateRange(
-        state.dateRange.startDate, 
-        state.dateRange.endDate
-      );
-    });
+    ref.listen(
+      historicalRatesControllerProvider(currency).select((value) => value),
+      (previous, current) {
+        if (previous == null) {
+          controller.loadRatesForDateRange(
+            state.dateRange.startDate, 
+            state.dateRange.endDate
+          );
+        }
+      },
+      onError: (error, stackTrace) {
+        if (error is AppException) {
+          showErrorSnackBar(context, error);
+        }
+      },
+    );
 
     final theme = Theme.of(context);
     
@@ -78,10 +87,10 @@ class HistoricalRatesScreen extends ConsumerWidget {
                 isLoading: true,
                 isEmpty: false,
               ),
-              data: (rates) => _buildContent(context, rates as List<ExchangeRate>),
+              data: (rates) => _buildContent(context, rates),
               error: (error) {
-                _showError(context, error);
-                return EmptyOrLoadingState(
+                showErrorSnackBar(context, error);
+                return const EmptyOrLoadingState(
                   isLoading: false,
                   isEmpty: true,
                 );
@@ -143,17 +152,6 @@ class HistoricalRatesScreen extends ConsumerWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-  
-  void _showError(BuildContext context, AppException error) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(error.message),
-        backgroundColor: Theme.of(context).colorScheme.error,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
       ),
     );
   }

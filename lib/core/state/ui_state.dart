@@ -1,78 +1,69 @@
-import '../errors/app_exceptions.dart';
 
-/// UI durumlarını temsil eden sealed class
+/// UI state durumlarını temsil eden abstract sınıf
 abstract class UIState<T> {
   const UIState();
-  
-  /// Başlangıç durumu
-  const factory UIState.initial() = Initial;
-  
-  /// Yükleniyor durumu
-  const factory UIState.loading() = Loading;
-  
-  /// Veri içeren durum
-  const factory UIState.data(T data) = Data;
-  
-  /// Hata durumu
-  const factory UIState.error(AppException error) = Error;
-  
-  /// UI state durumunu kontrol eden yardımcı metotlar
+
+  /// İlk durum olup olmadığını kontrol eder
   bool get isInitial => this is Initial<T>;
+
+  /// Yükleniyor durumunda olup olmadığını kontrol eder
   bool get isLoading => this is Loading<T>;
+
+  /// Veri içerip içermediğini kontrol eder
   bool get hasData => this is Data<T>;
+
+  /// Hata içerip içermediğini kontrol eder
   bool get hasError => this is Error<T>;
-  
-  /// Veriyi getter olarak almak
+
+  /// Veriyi döndürür, yoksa null döner
   T? get dataOrNull => this is Data<T> ? (this as Data<T>).data : null;
-  
-  /// Hatayı getter olarak almak
-  AppException? get errorOrNull => this is Error<T> ? (this as Error<T>).error : null;
-  
-  /// Pattern matching için when metodu
+
+  /// Hatayı döndürür, yoksa null döner
+  Exception? get errorOrNull => this is Error<T> ? (this as Error<T>).error : null;
+
+  /// UI state türüne göre farklı değerler döndürür
   R when<R>({
     required R Function() initial,
     required R Function() loading,
     required R Function(T data) data,
-    required R Function(AppException error) error,
+    required R Function(Exception error) error,
   }) {
-    final state = this;
-    if (state is Initial<T>) {
+    if (this is Initial<T>) {
       return initial();
-    } else if (state is Loading<T>) {
+    } else if (this is Loading<T>) {
       return loading();
-    } else if (state is Data<T>) {
-      return data(state.data);
-    } else if (state is Error<T>) {
-      return error(state.error);
-    } else {
-      throw StateError('Unsupported state type: $this');
+    } else if (this is Data<T>) {
+      return data((this as Data<T>).data);
+    } else if (this is Error<T>) {
+      return error((this as Error<T>).error);
     }
+    
+    throw StateError('Unknown state type: $this');
   }
-  
-  /// Optional pattern matching
+
+  /// UI state türüne göre farklı değerler döndürür, belirtilmeyen durumlar için orElse kullanılır
   R maybeWhen<R>({
     R Function()? initial,
     R Function()? loading,
     R Function(T data)? data,
-    R Function(AppException error)? error,
+    R Function(Exception error)? error,
     required R Function() orElse,
   }) {
-    final state = this;
-    if (state is Initial<T> && initial != null) {
+    if (this is Initial<T> && initial != null) {
       return initial();
-    } else if (state is Loading<T> && loading != null) {
+    } else if (this is Loading<T> && loading != null) {
       return loading();
-    } else if (state is Data<T> && data != null) {
-      return data(state.data);
-    } else if (state is Error<T> && error != null) {
-      return error(state.error);
-    } else {
-      return orElse();
+    } else if (this is Data<T> && data != null) {
+      return data((this as Data<T>).data);
+    } else if (this is Error<T> && error != null) {
+      return error((this as Error<T>).error);
     }
+    
+    return orElse();
   }
 }
 
-/// Başlangıç durumu
+/// İlk durum
 class Initial<T> extends UIState<T> {
   const Initial();
 }
@@ -82,14 +73,34 @@ class Loading<T> extends UIState<T> {
   const Loading();
 }
 
-/// Veri içeren durum
+/// Veri durumu
 class Data<T> extends UIState<T> {
   final T data;
+  
   const Data(this.data);
+  
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is Data<T> && other.data == data;
+  }
+
+  @override
+  int get hashCode => data.hashCode;
 }
 
 /// Hata durumu
 class Error<T> extends UIState<T> {
-  final AppException error;
+  final Exception error;
+  
   const Error(this.error);
+  
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is Error<T> && other.error == error;
+  }
+
+  @override
+  int get hashCode => error.hashCode;
 } 
