@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/currency_providers.dart';
+import '../controllers/currency_converter_controller.dart';
 import '../../../../core/errors/app_exceptions.dart';
+import '../../../../core/state/ui_state.dart';
 import '../../domain/models/currency.dart';
 import 'converter/amount_input.dart';
 import 'converter/currency_dropdown.dart';
@@ -19,8 +20,15 @@ class _CurrencyConverterFormState extends ConsumerState<CurrencyConverterForm> {
   final _amountController = TextEditingController();
   String? _sourceCurrency;
   String? _targetCurrency;
-  double? _result;
-  bool _isConverting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize controller and load currencies
+    Future.microtask(() {
+      ref.read(currencyConverterControllerProvider.notifier).loadCurrencies();
+    });
+  }
 
   @override
   void dispose() {
@@ -29,7 +37,10 @@ class _CurrencyConverterFormState extends ConsumerState<CurrencyConverterForm> {
   }
 
   Future<void> _convertCurrency() async {
-    if (_amountController.text.isEmpty) return;
+    if (_amountController.text.isEmpty) {
+      _showError('Lütfen geçerli bir miktar girin');
+      return;
+    }
     
     final amount = double.tryParse(_amountController.text);
     if (amount == null) {
@@ -47,37 +58,12 @@ class _CurrencyConverterFormState extends ConsumerState<CurrencyConverterForm> {
       return;
     }
 
-    setState(() {
-      _isConverting = true;
-    });
-
-    try {
-      final rates = await ref.read(latestRatesProvider((
-        base: _sourceCurrency!,
-        symbols: [_targetCurrency!],
-      )).future);
-
-      final rate = rates.rates[_targetCurrency];
-      if (rate == null) {
-        _showError('Döviz kuru bulunamadı');
-        return;
-      }
-
-      setState(() {
-        _result = amount * rate;
-        _isConverting = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isConverting = false;
-      });
-      
-      if (e is AppException) {
-        _showError(formatErrorMessage(e));
-      } else {
-        _showError('Döviz çevirme işlemi başarısız oldu: ${e.toString()}');
-      }
-    }
+    // Controller üzerinden dönüştürme işlemini çağır
+    ref.read(currencyConverterControllerProvider.notifier).convertCurrency(
+      sourceCurrency: _sourceCurrency!,
+      targetCurrency: _targetCurrency!,
+      amount: amount,
+    );
   }
 
   void _showError(String message) {
@@ -109,13 +95,16 @@ class _CurrencyConverterFormState extends ConsumerState<CurrencyConverterForm> {
       final temp = _sourceCurrency;
       _sourceCurrency = _targetCurrency;
       _targetCurrency = temp;
-      _result = null;
     });
+    
+    // Swap sonrası sonucu sıfırla
+    ref.read(currencyConverterControllerProvider.notifier).resetConversion();
   }
 
   @override
   Widget build(BuildContext context) {
-    final currenciesAsync = ref.watch(currenciesProvider);
+    // Controller'dan state'i oku
+    final state = ref.watch(currencyConverterControllerProvider);
 
     return Card(
       child: SingleChildScrollView(
@@ -129,28 +118,21 @@ class _CurrencyConverterFormState extends ConsumerState<CurrencyConverterForm> {
               const SizedBox(height: 16),
               
               // Para birimi seçimi
-              currenciesAsync.when(
-                data: (currencies) => _buildCurrencySelectors(currencies),
+              state.currencies.when(
+                initial: () => const LoadingOrError(isLoading: true),
                 loading: () => const LoadingOrError(isLoading: true),
-                error: (error, stack) {
-                  String errorMessage = 'Veri yüklenirken bir hata oluştu';
-                  if (error is AppException) {
-                    errorMessage = formatErrorMessage(error);
-                  } else {
-                    errorMessage = 'Hata: ${error.toString()}';
-                  }
-                  return LoadingOrError(
-                    isLoading: false,
-                    errorMessage: errorMessage,
-                  );
-                },
+                data: (currencies) => _buildCurrencySelectors(currencies),
+                error: (error) => LoadingOrError(
+                  isLoading: false,
+                  errorMessage: _formatErrorMessage(error),
+                ),
               ),
               
               // Dönüştür butonu
               const SizedBox(height: 24),
               ElevatedButton.icon(
-                onPressed: _isConverting ? null : _convertCurrency,
-                icon: _isConverting 
+                onPressed: state.conversionResult.isLoading ? null : _convertCurrency,
+                icon: state.conversionResult.isLoading
                   ? const SizedBox(
                       width: 16, 
                       height: 16,
@@ -159,20 +141,32 @@ class _CurrencyConverterFormState extends ConsumerState<CurrencyConverterForm> {
                       )
                     ) 
                   : const Icon(Icons.swap_horiz),
-                label: Text(_isConverting ? 'Dönüştürülüyor...' : 'Dönüştür'),
+                label: Text(state.conversionResult.isLoading ? 'Dönüştürülüyor...' : 'Dönüştür'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
               ),
               
               // Sonuç gösterimi
-              if (_result != null) ...[
+              if (state.conversionResult.hasData) ...[
                 const SizedBox(height: 24),
                 ResultDisplay(
-                  result: _result!,
-                  amount: _amountController.text,
-                  sourceCurrency: _sourceCurrency!,
-                  targetCurrency: _targetCurrency!,
+                  result: state.conversionResult.dataOrNull!.convertedAmount,
+                  amount: state.conversionResult.dataOrNull!.amount.toString(),
+                  sourceCurrency: state.conversionResult.dataOrNull!.sourceCurrency,
+                  targetCurrency: state.conversionResult.dataOrNull!.targetCurrency,
+                ),
+              ],
+              
+              // Hata mesajı gösterimi
+              if (state.conversionResult.hasError) ...[
+                const SizedBox(height: 16),
+                Text(
+                  _formatErrorMessage(state.conversionResult.errorOrNull!),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
               ],
             ],
@@ -192,8 +186,8 @@ class _CurrencyConverterFormState extends ConsumerState<CurrencyConverterForm> {
           onChanged: (value) {
             setState(() {
               _sourceCurrency = value;
-              _result = null;
             });
+            ref.read(currencyConverterControllerProvider.notifier).resetConversion();
           },
         ),
         const SizedBox(height: 16),
@@ -207,8 +201,8 @@ class _CurrencyConverterFormState extends ConsumerState<CurrencyConverterForm> {
                 onChanged: (value) {
                   setState(() {
                     _targetCurrency = value;
-                    _result = null;
                   });
+                  ref.read(currencyConverterControllerProvider.notifier).resetConversion();
                 },
               ),
             ),
@@ -222,5 +216,14 @@ class _CurrencyConverterFormState extends ConsumerState<CurrencyConverterForm> {
         ),
       ],
     );
+  }
+  
+  // Hata mesajlarını formatlama
+  String _formatErrorMessage(AppException error) {
+    if (error.message.contains('Aynı')) {
+      return error.message;
+    } else {
+      return 'Hata: ${error.message}';
+    }
   }
 } 

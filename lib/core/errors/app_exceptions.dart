@@ -1,4 +1,4 @@
-abstract class AppException implements Exception {
+class AppException implements Exception {
   final String message;
   final String? code;
   final dynamic details;
