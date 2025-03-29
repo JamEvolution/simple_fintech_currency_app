@@ -2,6 +2,11 @@
 
 Flutter ile geliştirilmiş, temiz mimari prensiplerini kullanan bir döviz çevirici uygulaması. Bu uygulama, güncel ve geçmiş döviz kurlarını göstermenin yanı sıra farklı para birimleri arasında dönüşüm yapma imkanı sağlar.
 
+## Gif
+
+![Uygulama Demo](assets/simple_fintech_currency_app.gif)
+
+
 ## Özellikler
 
 - Para birimleri arasında döviz çevirme
