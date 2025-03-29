@@ -4,7 +4,7 @@ Flutter ile geliştirilmiş, temiz mimari prensiplerini kullanan bir döviz çev
 
 ## Gif
 
-![Uygulama Demo](assets/simple_fintech_currency_app.gif)
+![Uygulama Demo](assets/simple_fintech_currency_gif.gif)
 
 
 ## Özellikler
